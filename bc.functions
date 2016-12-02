@@ -1,0 +1,99 @@
+# This file is part of libertine linux's package bc. It is subject to the licence terms in the COPYRIGHT file found in the top-level directory of this distribution and at https://raw.githubusercontent.com/libertine-linux-packages/libertine/master/COPYRIGHT. No part of libertine linux's package bc, including this file, may be copied, modified, propagated, or distributed except according to the terms contained in the COPYRIGHT file.
+# Copyright © 2016 The developers of libertine linux's package bc. See the COPYRIGHT file in the top-level directory of this distribution and at https://raw.githubusercontent.com/libertine-linux-packages/libertine/master/COPYRIGHT.
+
+
+variant=bc-1.06
+
+depends build_ccache
+build_needs ccache
+
+depends build_gnumake
+build_needs make
+
+depends build_perl
+build_needs perl
+
+depends build_autoconf
+build_needs autoconf autoheader autom4te autoreconf autoscan autoupdate ifnames
+
+depends build_automake
+build_needs automake aclocal
+
+depends build_gnum4
+build_needs m4
+
+depends build_busybox
+build_needs expr ls sleep uname install
+build_needs cat sed ln
+
+case "$package" in
+	
+	build_bc)
+		depends build_musl_cross_make_build
+		build_needs "$libertine_build"-cc "$libertine_build"-gcc "$libertine_build"-ar "$libertine_build"-ld "$libertine_build"-ranlib
+		build_provides bc
+	;;
+	
+	bc)
+		depends build_musl_cross_make_host
+		build_needs "$libertine_host"-cc "$libertine_host"-gcc "$libertine_host"-ar "$libertine_host"-ld "$libertine_host"-ranlib "$libertine_host"-strip
+	;;
+	
+esac
+
+libertine_compile_build_bc()
+{
+	_libertine_compile_bc_internal "$libertine_build" "$(libertine_public_outputBuildSysrootPath)"
+	
+	mkdir -m 0755 -p "$(libertine_public_outputBuildSysrootPath)"/usr
+	ln -s .."$(libertine_public_outputBuildSysrootPath)"/usr/bin "$(libertine_public_outputBuildSysrootPath)"/usr/bin
+}
+
+libertine_compile_bc()
+{
+	_libertine_compile_bc_internal "$libertine_host" "$(libertine_public_outputHostSysrootPath)"
+	
+	libertine_public_installAndStripBinariesIn bin bc
+}
+
+_libertine_compile_bc_internal()
+{
+	local target="$1"
+	local sysroot="$2"
+	
+	pushd "$(libertine_public_sourcePath)"
+		
+		# Bug fixes with not including <string.h> header, as bc assumes it's only ever compiled with glibc
+		sed -i -e 's/#include <stdio.h>/#include <stdio.h>\n#include <string.h>/g' lib/number.c
+		sed -i -e 's/#include <stdio.h>/#include <stdio.h>\n#include <string.h>/g' lib/getopt.c
+		
+		rm bc/bc.y
+		sed -i -e 's/bc.y/bc.c/g' bc/Makefile.am
+		sed -i -e 's/#include "proto.h"/#include "proto.h"\n#include <string.h>/g' bc/bc.c
+		
+		rm bc/scan.l
+		sed -i -e 's/scan.l/scan.c/g' bc/Makefile.am
+		sed -i -e 's/#include "proto.h"/#include "proto.h"\n#include <string.h>/g' bc/scan.c
+
+		sed -i -e 's/#include "proto.h"/#include "proto.h"\n#include <string.h>/g' bc/load.c
+		
+		sed -i -e 's/#include "proto.h"/#include "proto.h"\n#include <string.h>/g' bc/util.c
+		
+		
+		# We do not make dc, as that is provided by busybox itself if required, and we do not make doc cruft
+		sed -i -e 's/SUBDIRS = lib bc dc doc/SUBDIRS = lib bc/g' Makefile.am
+		sed -i -e 's;bc/Makefile dc/Makefile doc/Makefile lib/Makefile;bc/Makefile lib/Makefile;g' configure.in
+		
+		# bc uses legacy autoconf features
+		rm -rf missing configure install-sh aclocal.m4 stamp-h.in Makefile.in
+		mv configure.in configure.ac
+		autoreconf --install --force --verbose
+		
+		libertine_public_autoconf_modernAutoconfConfigure
+		
+		libertine_public_make AR="$target"-ar
+		
+		libertine_public_make DESTDIR="$sysroot" install
+		
+	popd
+}
