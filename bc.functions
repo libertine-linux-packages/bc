@@ -37,6 +37,9 @@ case "$package" in
 	bc)
 		depends build_musl_cross_make_host
 		build_needs "$libertine_host"-cc "$libertine_host"-gcc "$libertine_host"-ar "$libertine_host"-ld "$libertine_host"-ranlib "$libertine_host"-strip
+
+		depends build_paxctl
+		build_needs paxctl
 	;;
 	
 esac
@@ -53,7 +56,7 @@ libertine_compile_bc()
 {
 	_libertine_compile_bc_internal "$libertine_host" "$(libertine_public_outputHostSysrootPath)"
 	
-	libertine_public_installAndStripBinariesIn bin bc
+	libertine_public_installAndStripBinaryIn bin bc
 }
 
 _libertine_compile_bc_internal()
