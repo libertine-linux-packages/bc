@@ -23,6 +23,7 @@ depends build_gnum4
 build_needs m4
 
 depends build_busybox
+depends build_netbsd_src_sleep
 build_needs expr ls sleep uname install
 build_needs cat sed ln
 
